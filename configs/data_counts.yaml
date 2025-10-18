@@ -1,0 +1,32 @@
+# YOLOv8 data config for multi-class chip count detection
+
+# Root of your dataset; change to your path
+path: datasets/chips
+
+train: images/train
+val: images/val
+
+# For example, K=20 classes representing counts 1..20
+names:
+  - count_1
+  - count_2
+  - count_3
+  - count_4
+  - count_5
+  - count_6
+  - count_7
+  - count_8
+  - count_9
+  - count_10
+  - count_11
+  - count_12
+  - count_13
+  - count_14
+  - count_15
+  - count_16
+  - count_17
+  - count_18
+  - count_19
+  - count_20
+
+
