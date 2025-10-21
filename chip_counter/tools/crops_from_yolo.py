@@ -25,13 +25,28 @@ def run(images_dir: Path, labels_dir: Path, out_dir: Path, class_map_yaml: Path)
     loaded = yaml.safe_load(class_map_yaml.read_text())
     # Normalize to a list indexed by class id
     if isinstance(loaded, dict):
-        if "names" in loaded and isinstance(loaded["names"], list):
-            names = loaded["names"]
-        elif all(isinstance(k, int) for k in loaded.keys()):
-            # dict like {0: 'purple', 1: 'black', ...}
-            names = [loaded[i] for i in sorted(loaded.keys())]
+        nm = loaded.get("names", loaded)
+        if isinstance(nm, list):
+            names = nm
+        elif isinstance(nm, dict):
+            if all(isinstance(k, int) for k in nm.keys()):
+                # id -> name mapping
+                names = [nm[i] for i in sorted(nm.keys())]
+            elif all(isinstance(v, int) for v in nm.values()):
+                # name -> id mapping
+                max_id = max(nm.values())
+                tmp = [None] * (max_id + 1)
+                for name, idx in nm.items():
+                    tmp[idx] = name
+                names = [n if n is not None else str(i) for i, n in enumerate(tmp)]
+            else:
+                raise ValueError(
+                    "names-yaml must provide names as list, id->name dict, or name->id dict"
+                )
         else:
-            raise ValueError("names-yaml must be a list or a dict with 'names' list or id->name mapping")
+            raise ValueError(
+                "names-yaml must provide names as list, id->name dict, or name->id dict"
+            )
     elif isinstance(loaded, list):
         names = loaded
     else:
