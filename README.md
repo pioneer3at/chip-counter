@@ -173,4 +173,23 @@ The `chip_counter` CLI performs the following steps:
 
 MIT
 
+## Dataset capture (single-shot)
 
+Use the capture-only CLI to save images for dataset collection. It can save to a directory (auto timestamped filenames) or a specific file path.
+
+```bash
+# Save to directory with timestamped name
+python -m chip_counter.capture --output datasets/chips/images/train
+
+# Save to a specific file path
+python -m chip_counter.capture --output datasets/chips/images/train/img_001.jpg
+
+# Raspberry Pi: wait for physical button and use LED
+python -m chip_counter.capture --output datasets/chips/images/train \
+  --button-pin 17 --led-pin 27
+
+# Capture immediately without waiting for input/button
+python -m chip_counter.capture --output datasets/chips/images/train --no-wait
+```
+
+After capturing, create corresponding YOLO label files under `datasets/chips/labels/train/` with the same stem name and `.txt` extension.
