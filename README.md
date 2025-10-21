@@ -203,6 +203,52 @@ python -m chip_counter \
 
 The CLI will print per-detection class names, the total chip count (if using `count_*` classes), and the `Total value` derived from the YAML mapping.
 
+## Two-stage pipeline (detect → color classify)
+
+When classes are color-dependent, better results often come from a two-stage approach: detect stacks first, then classify color on cropped images.
+
+### 1) Stage 1: Detector (YOLOv8 detect)
+- Train a detector to find chip stacks (single class like `stack`) or keep `count_*` if you also need per-stack counts.
+- For color-sensitive workflows, disable HSV color jitter during training: `hsv_h=0 hsv_s=0 hsv_v=0`.
+
+### 2) Generate classifier crops from YOLO labels
+Use our tool to create a color-classification dataset of crops from your labeled images:
+
+```bash
+python -m chip_counter.tools.crops_from_yolo \
+  --images datasets/chips/images/train \
+  --labels datasets/chips/labels/train \
+  --out datasets/colors \
+  --names-yaml datasets/chips/dataset.yaml  # uses its names order
+
+# Result: datasets/colors/images/{train,val}/{purple,black,orange,...}/*.jpg
+```
+
+### 3) Stage 2: Train a classifier (YOLOv8 classify)
+Create a simple classifier data YAML (or pass directories directly):
+
+```bash
+yolo classify train \
+  data=datasets/colors/images \
+  model=yolov8n-cls.pt imgsz=224 epochs=50 batch=32 device=cpu \
+  hsv_h=0 hsv_s=0 hsv_v=0
+
+# Best classifier weights at runs/classify/train/weights/best.pt
+```
+
+### 4) Run end-to-end
+
+```bash
+python -m chip_counter \
+  --weights runs/detect/train/weights/best.pt \
+  --color-weights runs/classify/train/weights/best.pt \
+  --denom-yaml configs/denominations.yaml \
+  --conf 0.2 --imgsz 640 \
+  --save-overlay outputs/overlay.jpg
+```
+
+The overlay includes detector class/conf and the classifier’s color prediction per box. The total monetary value uses the color mapping.
+
 ## Pipeline details
 
 The `chip_counter` CLI performs the following steps:

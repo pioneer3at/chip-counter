@@ -8,6 +8,7 @@ import yaml
 from chip_counter.hardware.gpio import Button, LED
 from chip_counter.camera.csi import CameraCapture
 from chip_counter.detection.yolo_detector import YOLODetector
+from chip_counter.classification import YOLOColorClassifier
 
 
 def run(
@@ -20,6 +21,7 @@ def run(
     iou: float,
     imgsz: Optional[int],
     save_overlay: Optional[str],
+    color_weights: Optional[str],
 ) -> int:
     button: Optional[Button] = Button(bcm_pin=button_pin) if button_pin is not None else None
     led: Optional[LED] = LED(bcm_pin=led_pin) if led_pin is not None else None
@@ -70,14 +72,22 @@ def run(
             import cv2  # type: ignore
 
             overlay = image.copy()
+            # Optional color classification
+            classifier = YOLOColorClassifier(color_weights) if color_weights else None
             for d in detections:
                 x1, y1, x2, y2 = [int(v) for v in d.get("bbox", (0, 0, 0, 0))]
                 cls_name = str(d.get("class_name", ""))
                 conf = float(d.get("confidence", 0.0))
+                label = f"{cls_name} {conf:.2f}"
+                if classifier is not None and y2 > y1 and x2 > x1:
+                    crop = image[y1:y2, x1:x2, :]
+                    pred = classifier.predict(crop)
+                    label = f"{label} | {pred.class_name}:{pred.confidence:.2f}"
+
                 cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(
                     overlay,
-                    f"{cls_name} {conf:.2f}",
+                    label,
                     (x1, max(0, y1 - 5)),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
@@ -103,6 +113,7 @@ def main() -> int:
     parser.add_argument("--iou", type=float, default=0.45, help="IoU NMS threshold (default: 0.45)")
     parser.add_argument("--imgsz", type=int, default=None, help="Inference image size, e.g., 640")
     parser.add_argument("--save-overlay", type=str, default=None, help="Path to save overlay image with boxes")
+    parser.add_argument("--color-weights", type=str, default=None, help="Path to YOLOv8 classification weights")
     args = parser.parse_args()
     return run(
         args.weights,
@@ -114,6 +125,7 @@ def main() -> int:
         args.iou,
         args.imgsz,
         args.save_overlay,
+        args.color_weights,
     )
 
 
