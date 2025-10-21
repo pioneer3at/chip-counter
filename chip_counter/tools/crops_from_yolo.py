@@ -22,11 +22,20 @@ def yolo_to_xyxy(box: Tuple[float, float, float, float], w: int, h: int) -> Tupl
 def run(images_dir: Path, labels_dir: Path, out_dir: Path, class_map_yaml: Path) -> None:
     import yaml
 
-    names = yaml.safe_load(class_map_yaml.read_text())
-    # names may be list or dict; normalize to list indexed by class id
-    if isinstance(names, dict):
-        # assume dict like {0: 'purple', 1: 'black', ...}
-        names = [names[i] for i in sorted(names.keys())]
+    loaded = yaml.safe_load(class_map_yaml.read_text())
+    # Normalize to a list indexed by class id
+    if isinstance(loaded, dict):
+        if "names" in loaded and isinstance(loaded["names"], list):
+            names = loaded["names"]
+        elif all(isinstance(k, int) for k in loaded.keys()):
+            # dict like {0: 'purple', 1: 'black', ...}
+            names = [loaded[i] for i in sorted(loaded.keys())]
+        else:
+            raise ValueError("names-yaml must be a list or a dict with 'names' list or id->name mapping")
+    elif isinstance(loaded, list):
+        names = loaded
+    else:
+        raise ValueError("Unsupported names-yaml format")
 
     out_train = out_dir / "images" / "train"
     out_val = out_dir / "images" / "val"
