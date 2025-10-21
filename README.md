@@ -193,3 +193,26 @@ python -m chip_counter.capture --output datasets/chips/images/train --no-wait
 ```
 
 After capturing, create corresponding YOLO label files under `datasets/chips/labels/train/` with the same stem name and `.txt` extension.
+
+## Convert LabelMe JSONs to YOLOv8 labels
+
+If you labeled with LabelMe (e.g., `test.json`, `test2.json`), convert to YOLO labels:
+
+```bash
+# Example: convert two files into labels/train
+python -m chip_counter.tools.labelme_to_yolo \
+  test.json test2.json \
+  --out-labels datasets/chips/labels/train \
+  --max-k 20
+
+# Or convert an entire directory of JSONs
+python -m chip_counter.tools.labelme_to_yolo \
+  datasets/chips/labelme-jsons \
+  --out-labels datasets/chips/labels/train \
+  --max-k 20
+```
+
+Notes:
+- Supported labels include `count_7`, `7`, or any label ending with digits like `chips_7`.
+- Classes are 0-indexed in YOLO: `count_1 -> class 0`, `count_2 -> class 1`, ...
+- The converter creates 1 label file per image (same stem) with box lines `class cx cy w h`.
