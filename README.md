@@ -52,6 +52,30 @@ sudo apt update
 sudo apt install -y python3-picamera2 libcamera-apps
 ```
 
+- On Raspberry Pi OS Bookworm, use the rpicam-* tools (e.g., `rpicam-hello`, `rpicam-still`) instead of the older `libcamera-*` names.
+
+- Recommended venv on Pi (so apt-installed Picamera2 is visible):
+
+```bash
+# If you just added your user to video/render groups, reboot first
+# sudo usermod -aG video,render $USER && sudo reboot
+
+cd /home/pi/chip-counter
+deactivate 2>/dev/null || true
+rm -rf .venv
+/usr/bin/python3 --version  # should print 3.11.x on Pi OS Bookworm
+/usr/bin/python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Sanity checks
+python -c "from picamera2 import Picamera2; print('Picamera2 OK')"
+rpicam-hello -t 2000
+
+# Try a capture
+python -m chip_counter.capture --output outputs/test.jpg --no-wait
+```
+
 - GPIO libraries (often preinstalled or available via apt):
   - RPi.GPIO or gpiozero. The code dynamically falls back to mock GPIO on non-Pi platforms.
 
@@ -153,6 +177,32 @@ for det in detections:
     print(det)
 ```
 
+### Denomination mapping (sum a monetary value)
+
+If your model’s classes are chip colors or names (e.g., `purple`, `black`, `orange`, `yellow`, `blue`, `red`, `green`), you can sum a monetary total by providing a YAML mapping of `class_name -> value` to the CLI:
+
+```yaml
+# configs/denominations.yaml
+purple: 1000
+black: 100
+orange: -2000
+yellow: 500
+blue: 10
+red: 50
+green: 20
+```
+
+Run the end-to-end CLI and include the mapping:
+
+```bash
+python -m chip_counter \
+  --weights runs/chips/yolov8n_counts/weights/best.pt \
+  --denom-yaml configs/denominations.yaml \
+  --save-image out.jpg
+```
+
+The CLI will print per-detection class names, the total chip count (if using `count_*` classes), and the `Total value` derived from the YAML mapping.
+
 ## Pipeline details
 
 The `chip_counter` CLI performs the following steps:
@@ -232,3 +282,33 @@ Troubleshooting empty .txt files:
 - Ensure LabelMe shapes are polygons/rectangles with points.
 - Ensure `imageWidth`/`imageHeight` exist in JSON or the `imagePath` is valid so the script can infer size. If missing, re-save in LabelMe or keep `imagePath` next to JSON.
 - Confirm your labels actually parse to counts (use `--map` or `--default-count`).
+
+### Alternative: Convert with labelme2yolo
+
+You can also use the community `labelme2yolo` converter.
+
+```bash
+pip install labelme2yolo
+
+# Convert a LabelMe folder. Use bbox for detection; polygon is for segmentation.
+labelme2yolo --json_dir labelme \
+             --output_format bbox \
+             --val_size 0.1 \
+             --seed 42
+
+# The tool creates a YOLO dataset folder inside the json_dir (often labelme/YOLODataset)
+ls -l labelme
+
+# Move/copy into this repo's dataset location
+mkdir -p datasets/chips
+rsync -a labelme/YOLODataset/ datasets/chips/
+
+# Train using the generated dataset.yaml
+yolo task=detect mode=train \
+  data=datasets/chips/dataset.yaml \
+  model=yolov8n.pt imgsz=512 epochs=50 batch=4
+```
+
+Notes:
+- Ensure your LabelMe labels match your intended classes (e.g., `count_1..count_K`). If needed, edit `datasets/chips/dataset.yaml` `names:` to reflect your classes while preserving the ID order.
+- If no validation split was created, either re-run with a larger `--val_size` or manually move some pairs into `images/val` and `labels/val`.

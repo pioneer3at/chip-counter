@@ -1,15 +1,22 @@
 import argparse
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 import numpy as np
+import yaml
 
 from chip_counter.hardware.gpio import Button, LED
 from chip_counter.camera.csi import CameraCapture
 from chip_counter.detection.yolo_detector import YOLODetector
 
 
-def run(weights: str, button_pin: Optional[int], led_pin: Optional[int], save_image: Optional[str]) -> int:
+def run(
+    weights: str,
+    button_pin: Optional[int],
+    led_pin: Optional[int],
+    save_image: Optional[str],
+    denom_yaml: Optional[str],
+) -> int:
     button: Optional[Button] = Button(bcm_pin=button_pin) if button_pin is not None else None
     led: Optional[LED] = LED(bcm_pin=led_pin) if led_pin is not None else None
 
@@ -37,7 +44,21 @@ def run(weights: str, button_pin: Optional[int], led_pin: Optional[int], save_im
     print("Detections:")
     for det in detections:
         print(det)
+
     print(f"Total chips: {total_count}")
+
+    # Optional: denomination mapping to compute monetary total
+    if denom_yaml:
+        try:
+            with open(denom_yaml, "r", encoding="utf-8") as f:
+                denom_map: Dict[str, int] = yaml.safe_load(f) or {}
+            total_value = 0
+            for det in detections:
+                cls = det.get("class_name", "")
+                total_value += int(denom_map.get(cls, 0))
+            print(f"Total value: {total_value}")
+        except Exception as e:
+            print(f"Warning: failed to load denominations from {denom_yaml}: {e}")
     return 0
 
 
@@ -47,7 +68,8 @@ def main() -> int:
     parser.add_argument("--button-pin", type=int, default=None, help="BCM pin for button (Raspberry Pi)")
     parser.add_argument("--led-pin", type=int, default=None, help="BCM pin for LED (Raspberry Pi)")
     parser.add_argument("--save-image", type=str, default=None, help="Optional path to save captured image")
+    parser.add_argument("--denom-yaml", type=str, default=None, help="Path to YAML mapping class_name -> value")
     args = parser.parse_args()
-    return run(args.weights, args.button_pin, args.led_pin, args.save_image)
+    return run(args.weights, args.button_pin, args.led_pin, args.save_image, args.denom_yaml)
 
 
