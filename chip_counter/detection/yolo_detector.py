@@ -14,12 +14,19 @@ class Detection:
 
 
 class YOLODetector:
-    def __init__(self, weights_path: str, conf_threshold: float = 0.25, iou_threshold: float = 0.45):
+    def __init__(
+        self,
+        weights_path: str,
+        conf_threshold: float = 0.25,
+        iou_threshold: float = 0.45,
+        imgsz: int | None = None,
+    ):
         from ultralytics import YOLO  # lazy import
 
         self.model = YOLO(weights_path)
         self.conf_threshold = conf_threshold
         self.iou_threshold = iou_threshold
+        self.imgsz = imgsz
         # Class names are derived from the model metadata
         self.class_names = self.model.names
 
@@ -29,6 +36,7 @@ class YOLODetector:
             verbose=False,
             conf=self.conf_threshold,
             iou=self.iou_threshold,
+            imgsz=self.imgsz if self.imgsz is not None else None,
         )
         detections: List[Detection] = []
         for r in results:
