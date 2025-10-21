@@ -216,3 +216,19 @@ Notes:
 - Supported labels include `count_7`, `7`, or any label ending with digits like `chips_7`.
 - Classes are 0-indexed in YOLO: `count_1 -> class 0`, `count_2 -> class 1`, ...
 - The converter creates 1 label file per image (same stem) with box lines `class cx cy w h`.
+
+If your labels don't include an explicit count in the text, use mapping/defaults:
+
+```bash
+# Map label text to counts and provide a default if parsing fails
+python -m chip_counter.tools.labelme_to_yolo \
+  test.json test2.json \
+  --out-labels datasets/chips/labels/train \
+  --map chips_stack=5 --map stack10=10 \
+  --default-count 1
+```
+
+Troubleshooting empty .txt files:
+- Ensure LabelMe shapes are polygons/rectangles with points.
+- Ensure `imageWidth`/`imageHeight` exist in JSON or the `imagePath` is valid so the script can infer size. If missing, re-save in LabelMe or keep `imagePath` next to JSON.
+- Confirm your labels actually parse to counts (use `--map` or `--default-count`).
