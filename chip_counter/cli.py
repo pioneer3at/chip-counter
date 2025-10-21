@@ -16,6 +16,8 @@ def run(
     led_pin: Optional[int],
     save_image: Optional[str],
     denom_yaml: Optional[str],
+    conf: float,
+    iou: float,
 ) -> int:
     button: Optional[Button] = Button(bcm_pin=button_pin) if button_pin is not None else None
     led: Optional[LED] = LED(bcm_pin=led_pin) if led_pin is not None else None
@@ -35,7 +37,7 @@ def run(
     if save_image:
         camera.save_image_bgr(image, Path(save_image))
 
-    detector = YOLODetector(weights_path=weights)
+    detector = YOLODetector(weights_path=weights, conf_threshold=conf, iou_threshold=iou)
     total_count, detections = detector.predict_total_count(image)
 
     if led is not None:
@@ -69,7 +71,9 @@ def main() -> int:
     parser.add_argument("--led-pin", type=int, default=None, help="BCM pin for LED (Raspberry Pi)")
     parser.add_argument("--save-image", type=str, default=None, help="Optional path to save captured image")
     parser.add_argument("--denom-yaml", type=str, default=None, help="Path to YAML mapping class_name -> value")
+    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold (default: 0.25)")
+    parser.add_argument("--iou", type=float, default=0.45, help="IoU NMS threshold (default: 0.45)")
     args = parser.parse_args()
-    return run(args.weights, args.button_pin, args.led_pin, args.save_image, args.denom_yaml)
+    return run(args.weights, args.button_pin, args.led_pin, args.save_image, args.denom_yaml, args.conf, args.iou)
 
 
